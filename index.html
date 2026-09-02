@@ -1,333 +1,399 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Mijn Reis door Japan 🇯🇵</title>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta property="og:title" content="Mijn Reis door Japan 🇯🇵" />
+<meta property="og:description" content="Volg mijn avontuur van Tokyo naar Hiroshima en terug! Bekijk mijn interactieve route, planning en live locatie." />
+<meta property="og:image" content="[https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=80](https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=80)" />
+<meta property="og:url" content="#" />
+<meta property="og:type" content="website" />
+
+<link rel="stylesheet" href="[https://unpkg.com/leaflet@1.9.4/dist/leaflet.css](https://unpkg.com/leaflet@1.9.4/dist/leaflet.css)" />
+<!-- FontAwesome for icons -->
+<link rel="stylesheet" href="[https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css](https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css)" />
+
+<style>
+    body { padding: 0; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f0f0; overflow: hidden; }
+    #map { height: 100vh; width: 100vw; }
     
-    <!-- Social Media Meta Tags (Open Graph) voor WhatsApp & link previews -->
-    <meta property="og:title" content="Mijn Reis door Japan 🇯🇵" />
-    <meta property="og:description" content="Volg mijn avontuur van Tokyo naar Hiroshima en terug! Bekijk mijn interactieve route, planning en live locatie." />
-    <meta property="og:image" content="https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?auto=format&fit=crop&w=1200&q=80" />
-    <meta property="og:url" content="#" />
-    <meta property="og:type" content="website" />
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    /* --- LAADSCHERM --- */
+    #loader {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background-color: #fff; z-index: 9999;
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        transition: opacity 0.8s ease;
+    }
+    .spinner {
+        width: 50px; height: 50px;
+        border: 5px solid #f3f3f3; border-top: 5px solid #e6194B;
+        border-radius: 50%; animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     
-    <style>
-        body { padding: 0; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f0f0; overflow: hidden; }
-        #map { height: 100vh; width: 100vw; }
-        
-        /* --- LAADSCHERM --- */
-        #loader {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-color: #fff; z-index: 9999;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            transition: opacity 0.8s ease;
+    /* --- UI ELEMENTEN --- */
+    .custom-marker {
+        border-radius: 50%; color: white; text-align: center; line-height: 26px;
+        font-weight: bold; font-size: 13px; border: 2px solid white;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.4); transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .custom-marker:hover { transform: scale(1.15); z-index: 1000 !important; }
+    
+    .marker-active {
+        animation: pulse 2s infinite; border: 3px solid #fff;
+        box-shadow: 0 0 15px rgba(230, 25, 75, 0.8); z-index: 2000 !important;
+    }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(230, 25, 75, 0.7); }
+        70% { box-shadow: 0 0 0 15px rgba(230, 25, 75, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(230, 25, 75, 0); }
+    }
+
+    /* --- LEGENDA & STATUS --- */
+    .legend {
+        background-color: rgba(255, 255, 255, 0.95); padding: 12px 18px;
+        border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        line-height: 1.6; color: #333; font-size: 13px; backdrop-filter: blur(5px);
+        /* Zorg dat de legenda niet buiten beeld valt op mobiel */
+        max-width: calc(100vw - 30px);
+        box-sizing: border-box;
+    }
+    .legend i {
+        width: 14px; height: 14px; float: left; margin-right: 10px;
+        opacity: 0.9; border-radius: 50%; margin-top: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .legend h4 {
+        margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase;
+        letter-spacing: 0.5px; color: #555; border-bottom: 1px solid #ccc; padding-bottom: 4px;
+    }
+    
+    #status-bar {
+        position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+        background: rgba(255,255,255,0.95); padding: 10px 20px; border-radius: 30px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000;
+        font-weight: bold; color: #e6194B; font-size: 14px;
+        display: flex; align-items: center; gap: 8px;
+        backdrop-filter: blur(5px); text-align: center;
+        width: max-content; max-width: 90vw;
+    }
+
+    /* --- POPUP STYLING (Verbeterd met afbeeldingen) --- */
+    .leaflet-popup-content-wrapper {
+        padding: 0;
+        overflow: hidden; /* Zorgt dat de image mooi afgerond bovenaan zit */
+        border-radius: 12px;
+    }
+    .leaflet-popup-content { 
+        font-size: 14px; margin: 0; 
+        width: 320px !important; /* Vaste breedte voor mooie image verhouding */
+    }
+    
+    .popup-hero-img {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-bottom: 3px solid #ddd; /* Wordt overschreven door legColor in JS */
+    }
+    
+    .popup-body {
+        padding: 15px;
+    }
+
+    .popup-header { font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #222; }
+    .active-badge { display: inline-block; background: #e6194B; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 5px; vertical-align: middle;}
+    .popup-date { color: #666; margin-bottom: 15px; font-size: 12px; display: flex; align-items: center; gap: 5px; }
+    
+    .popup-section { margin-bottom: 14px; background: #f9f9f9; padding: 10px; border-radius: 6px; border-left: 4px solid #ccc; }
+    .popup-section h5 { margin: 0 0 5px 0; color: #444; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;}
+    .popup-section ul { margin: 0; padding-left: 20px; font-size: 13px;}
+    .popup-section li { margin-bottom: 4px; }
+    
+    .popup-weather {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #eef7fc; padding: 8px 12px; border-radius: 6px; margin-bottom: 15px;
+        font-size: 12px; color: #005A7F; font-weight: bold;
+    }
+    .popup-weather i { font-size: 18px; }
+
+    .popup-btn { 
+        display: block; text-align: center; background-color: #0078A8; color: white !important; 
+        text-decoration: none; padding: 10px 12px; border-radius: 6px; font-weight: bold; 
+        margin-top: 5px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: all 0.2s ease;
+    }
+    .popup-btn:hover { background-color: #005A7F; transform: translateY(-1px); }
+    
+    /* Share & Actie Knoppen */
+    .action-btns {
+        position: absolute; bottom: 20px; left: 20px; z-index: 1000;
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    .circle-btn {
+        background-color: white; width: 44px; height: 44px; border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; font-size: 20px;
+        transition: background 0.2s; border: none; color: #333;
+    }
+    .circle-btn:hover { background-color: #f0f0f0; }
+
+    @media (max-width: 480px) {
+        #status-bar { font-size: 12px; padding: 8px 15px; }
+        .legend { 
+            padding: 8px 12px; font-size: 11px; 
+            margin-bottom: 10px; /* Zorg dat hij niet tegen de onderkant van het scherm plakt */
+            max-width: calc(100vw - 80px); /* Ruimte laten voor de knoppen links */
         }
-        .spinner {
-            width: 50px; height: 50px;
-            border: 5px solid #f3f3f3; border-top: 5px solid #e6194B;
-            border-radius: 50%; animation: spin 1s linear infinite;
-            margin-bottom: 20px;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        
-        /* --- UI ELEMENTEN --- */
-        .custom-marker {
-            border-radius: 50%; color: white; text-align: center; line-height: 26px;
-            font-weight: bold; font-size: 13px; border: 2px solid white;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.4); transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .custom-marker:hover { transform: scale(1.15); z-index: 1000 !important; }
-        
-        /* De 'Actieve' marker (Live locatie) */
-        .marker-active {
-            animation: pulse 2s infinite;
-            border: 3px solid #fff;
-            box-shadow: 0 0 15px rgba(230, 25, 75, 0.8);
-            z-index: 2000 !important;
-        }
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(230, 25, 75, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(230, 25, 75, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(230, 25, 75, 0); }
-        }
+        .action-btns { bottom: 20px; left: 10px; }
+        .leaflet-popup-content { width: 280px !important; }
+    }
+</style>
+<div id="loader">
+    <div class="spinner"></div>
+    <h2 style="color: #333; margin-top: 10px; font-family: sans-serif;">Reis wordt geladen...</h2>
+</div>
 
-        /* --- POPUP & LEGENDA --- */
-        .legend {
-            background-color: rgba(255, 255, 255, 0.95); padding: 12px 18px;
-            border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-            line-height: 1.6; color: #333; font-size: 13px; backdrop-filter: blur(5px);
-        }
-        .legend i {
-            width: 14px; height: 14px; float: left; margin-right: 10px;
-            opacity: 0.9; border-radius: 50%; margin-top: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-        .legend h4 {
-            margin: 0 0 8px 0; font-size: 14px; text-transform: uppercase;
-            letter-spacing: 0.5px; color: #555; border-bottom: 1px solid #ccc; padding-bottom: 4px;
-        }
-        
-        /* Status Balkje bovenin */
-        #status-bar {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: rgba(255,255,255,0.95); padding: 10px 20px; border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000;
-            font-weight: bold; color: #e6194B; font-size: 14px;
-            display: flex; align-items: center; gap: 8px;
-            backdrop-filter: blur(5px); text-align: center;
-            width: max-content; max-width: 90vw;
-        }
+<div id="status-bar">🗓️ Berekenen waar ik ben...</div>
 
-        .leaflet-popup-content { font-size: 14px; margin: 15px 15px 20px 15px; }
-        .popup-header { font-size: 17px; font-weight: 700; border-bottom: 2px solid #ddd; padding-bottom: 6px; margin-bottom: 8px; color: #222; }
-        .active-badge { display: inline-block; background: #e6194B; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 5px; vertical-align: middle;}
-        .popup-date { color: #005A7F; font-weight: 600; margin-bottom: 12px; font-size: 12px; display: flex; align-items: center; }
-        .popup-section { margin-bottom: 14px; background: #f9f9f9; padding: 8px; border-radius: 6px; border-left: 3px solid #ccc; }
-        .popup-section b { color: #333; display: block; margin-bottom: 4px; }
-        .popup-section ul { margin: 0; padding-left: 20px; }
-        .popup-btn { display: block; text-align: center; background-color: #0078A8; color: white !important; text-decoration: none; padding: 10px 12px; border-radius: 6px; font-weight: bold; margin-top: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        
-        /* Share & Actie Knoppen */
-        .action-btns {
-            position: absolute; bottom: 20px; left: 20px; z-index: 1000;
-            display: flex; flex-direction: column; gap: 10px;
-        }
-        .circle-btn {
-            background-color: white; width: 44px; height: 44px; border-radius: 50%;
-            display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3); cursor: pointer; font-size: 20px;
-            transition: background 0.2s; border: none;
-        }
-        .circle-btn:hover { background-color: #f0f0f0; }
+<div class="action-btns">
+    <button class="circle-btn" id="btn-zoom-all" title="Toon hele route"><i class="fa-solid fa-map-location-dot"></i></button>
+    <button class="circle-btn" id="btn-share" title="Deel met vrienden"><i class="fa-solid fa-share-nodes"></i></button>
+</div>
 
-        @media (max-width: 480px) {
-            #status-bar { font-size: 12px; padding: 8px 15px; }
-            .legend { padding: 8px 12px; font-size: 11px; }
-            .action-btns { bottom: 30px; left: 10px; }
-        }
-    </style>
-</head>
-<body>
+<div id="map"></div>
 
-    <!-- Laadscherm -->
-    <div id="loader">
-        <div class="spinner"></div>
-        <h2 style="color: #333; margin-top: 10px; font-family: sans-serif;">Route wordt uitgestippeld...</h2>
-    </div>
+<script src="[https://unpkg.com/leaflet@1.9.4/dist/leaflet.js](https://unpkg.com/leaflet@1.9.4/dist/leaflet.js)"></script>
+<script>
+    var map = L.map('map', { tap: false, zoomControl: false });
+    L.control.zoom({ position: 'topright' }).addTo(map);
 
-    <!-- Status Balk -->
-    <div id="status-bar">🗓️ Berekenen waar ik ben...</div>
+    var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+    var satLayer = L.tileLayer('[https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/](https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/){z}/{y}/{x}', { maxZoom: 19 });
+    streetLayer.addTo(map);
+    L.control.layers({"Straatkaart": streetLayer, "Satelliet (Bergen)": satLayer}, null, {position: 'topright'}).addTo(map);
 
-    <!-- Knoppen Linksonder -->
-    <div class="action-btns">
-        <button class="circle-btn" id="btn-zoom-all" title="Toon hele route">🗺️</button>
-        <button class="circle-btn" id="btn-share" title="Deel met vrienden">🔗</button>
-    </div>
+    var legsInfo = [
+        { id: 0, name: "1: Start & Alpen", color: "#e6194B" },
+        { id: 1, name: "2: Kansai (Cultuur)", color: "#3cb44b" },
+        { id: 2, name: "3: Shimanami Kaido", color: "#4363d8" },
+        { id: 3, name: "4: Chugoku (Historie)", color: "#911eb4" },
+        { id: 4, name: "5: Nakasendo & Fuji", color: "#f58231" }
+    ];
 
-    <div id="map"></div>
+    // We gebruiken nu een lokaal 'data.json' bestand concept. 
+    // Aangezien dit in 1 HTML bestand moet, simuleer ik de JSON data hier.
+    // In het echt op GitHub zou je dit asynchroon via fetch('data.json') inladen.
+    var locations = [
+        {id: 1, name: "Tokyo", lat: 35.6895, lon: 139.6917, desc: "10-14 Sep & 8-15 Oct", leg: 0, 
+         dates: [{start: "2026-09-09", end: "2026-09-14"}, {start: "2026-10-08", end: "2026-10-15"}],
+         plan: ["Aankomst & vertrek", "Vliegen"], suggest: ["Shibuya Crossing", "Senso-ji in Asakusa", "Shinjuku Gyoen"],
+         img: "images/tokyo.jpg", weatherIcon: "fa-cloud-sun", temp: "24°C"},
+         
+        {id: 2, name: "Kanazawa", lat: 36.5613, lon: 136.6562, desc: "14-17 Sep", leg: 0, dates: [{start: "2026-09-14", end: "2026-09-17"}],
+         plan: ["Geishawijk (Higashi Chaya)", "Vismarkt (Omicho)"], suggest: ["Kenroku-en tuin", "Kanazawa Castle"],
+         img: "images/kanazawa.jpg", weatherIcon: "fa-cloud-rain", temp: "22°C"},
+         
+        {id: 3, name: "Shirakawa-go", lat: 36.2621, lon: 136.9062, desc: "17 Sep (Dagtrip)", leg: 0, dates: [{start: "2026-09-17", end: "2026-09-17"}],
+         plan: ["Busrit is geboekt"], suggest: ["Traditionele gassho-zukuri huizen (UNESCO)", "Shiroyama Viewpoint"],
+         img: "images/shirakawago.jpg", weatherIcon: "fa-sun", temp: "18°C"},
+         
+        {id: 4, name: "Takayama", lat: 36.1461, lon: 137.2520, desc: "17-19 Sep", leg: 0, dates: [{start: "2026-09-17", end: "2026-09-19"}],
+         plan: ["Vrij in te vullen"], suggest: ["Oude centrum wandelroute", "Hida Beef proeven"],
+         img: "images/takayama.jpg", weatherIcon: "fa-cloud", temp: "19°C"},
+         
+        {id: 5, name: "Osaka", lat: 34.6937, lon: 135.5023, desc: "19-23 Sep", leg: 1, dates: [{start: "2026-09-19", end: "2026-09-23"}],
+         plan: ["Dagtrip Nara (22 sep)"], suggest: ["Shinsekai (direct bij je hostel!)", "Dotonbori avondmarkt"],
+         img: "images/osaka.jpg", weatherIcon: "fa-sun", temp: "26°C"},
+         
+        {id: 6, name: "Kyoto", lat: 35.0116, lon: 135.7681, desc: "23-26 Sep", leg: 1, dates: [{start: "2026-09-23", end: "2026-09-26"}],
+         plan: ["Adashino nenbutsuji", "Boat ride", "Temple route"], suggest: ["Fushimi Inari Taisha", "Kinkaku-ji", "Arashiyama Bamboebos"],
+         img: "images/kyoto.jpg", weatherIcon: "fa-cloud-sun", temp: "25°C"},
+         
+        {id: 7, name: "Onomichi", lat: 34.4093, lon: 133.1979, desc: "26-27 Sep", leg: 2, dates: [{start: "2026-09-26", end: "2026-09-27"}],
+         plan: ["Startpunt voor Shimanami Kaido fietsroute"], suggest: ["Senko-ji tempel ropeway", "Onomichi Ramen eten"],
+         img: "images/onomichi.jpg", weatherIcon: "fa-sun", temp: "24°C"},
+         
+        {id: 8, name: "Ikuchijima", lat: 34.3059, lon: 133.0905, desc: "27-28 Sep", leg: 2, dates: [{start: "2026-09-27", end: "2026-09-28"}],
+         plan: ["Fietsen", "Bagagevervoer naar Imabari regelen"], suggest: ["Kosan-ji tempel", "Lokaal citroen-ijs eten"],
+         img: "images/ikuchijima.jpg", weatherIcon: "fa-sun", temp: "24°C"},
+         
+        {id: 9, name: "Imabari", lat: 34.0662, lon: 132.9977, desc: "28-29 Sep", leg: 2, dates: [{start: "2026-09-28", end: "2026-09-29"}],
+         plan: ["Eindpunt fietstocht"], suggest: ["Imabari Castle", "Towels Museum (Ichihiro)"],
+         img: "images/imabari.jpg", weatherIcon: "fa-cloud", temp: "23°C"},
+         
+        {id: 10, name: "Matsuyama", lat: 33.8392, lon: 132.7656, desc: "29 Sep - 1 Oct", leg: 2, dates: [{start: "2026-09-29", end: "2026-10-01"}],
+         plan: ["Vrij in te vullen"], suggest: ["Dogo Onsen (inspiratie Spirited Away)", "Matsuyama Castle via kabelbaan"],
+         img: "images/matsuyama.jpg", weatherIcon: "fa-cloud-sun", temp: "24°C"},
+         
+        {id: 11, name: "Hiroshima", lat: 34.3853, lon: 132.4553, desc: "1-4 Oct", leg: 3, dates: [{start: "2026-10-01", end: "2026-10-04"}],
+         plan: ["Peace memorial", "Dingen regelen voor Miyajima"], suggest: ["Peace Memorial Museum", "Atomic Bomb Dome"],
+         img: "images/hiroshima.jpg", weatherIcon: "fa-sun", temp: "25°C"},
+         
+        {id: 12, name: "Miyajima", lat: 34.2968, lon: 132.3197, desc: "2 Oct (Dagtrip)", leg: 3, dates: [{start: "2026-10-02", end: "2026-10-02"}],
+         plan: ["Drijvende Torii-gate bezoeken"], suggest: ["Itsukushima Shrine", "Wilde herten aaien"],
+         img: "images/miyajima.jpg", weatherIcon: "fa-sun", temp: "25°C"},
+         
+        {id: 13, name: "Himeji", lat: 34.8151, lon: 134.6853, desc: "4 Oct", leg: 3, dates: [{start: "2026-10-04", end: "2026-10-04"}],
+         plan: ["Tussenstop richting Magome"], suggest: ["Himeji Castle (The White Heron)", "Koko-en Garden"],
+         img: "images/himeji.jpg", weatherIcon: "fa-cloud", temp: "22°C"},
+         
+        {id: 14, name: "Magome", lat: 35.5269, lon: 137.5683, desc: "4-5 Oct", leg: 4, dates: [{start: "2026-10-04", end: "2026-10-05"}],
+         plan: ["Start Nakasendo trail"], suggest: ["Wandel de historische postroute naar Tsumago", "Gohei Mochi proeven"],
+         img: "images/magome.jpg", weatherIcon: "fa-cloud-rain", temp: "16°C"},
+         
+        {id: 15, name: "Tsumago", lat: 35.5768, lon: 137.5951, desc: "5 Oct", leg: 4, dates: [{start: "2026-10-05", end: "2026-10-05"}],
+         plan: ["Aankomst Nakasendo trail"], suggest: ["Verken de authentiek bewaarde houten gebouwen"],
+         img: "images/tsumago.jpg", weatherIcon: "fa-cloud-rain", temp: "16°C"},
+         
+        {id: 16, name: "Nagoya", lat: 35.1815, lon: 136.9066, desc: "5-6 Oct", leg: 4, dates: [{start: "2026-10-05", end: "2026-10-06"}],
+         plan: ["Bus naar Kawaguchiko reserveren"], suggest: ["Nagoya Castle", "Miso Katsu proeven"],
+         img: "images/nagoya.jpg", weatherIcon: "fa-cloud-sun", temp: "23°C"},
+         
+        {id: 17, name: "Kawaguchiko", lat: 35.5034, lon: 138.7562, desc: "6-8 Oct", leg: 4, dates: [{start: "2026-10-06", end: "2026-10-08"}],
+         plan: ["Vrij in te vullen"], suggest: ["Chureito Pagoda (Fuji uitzicht)", "Huur een fiets rond het meer"],
+         img: "images/kawaguchiko.jpg", weatherIcon: "fa-sun", temp: "15°C"}
+    ];
 
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        var map = L.map('map', { tap: false, zoomControl: false });
-        L.control.zoom({ position: 'topright' }).addTo(map);
+    var exactRoute = [
+        {id: 1},{id: 2},{id: 3},{id: 4},{id: 5},{id: 6},{id: 7},{id: 8},{id: 9},{id: 10},
+        {id: 11},{id: 12},{id: 11},{id: 13},{id: 14},{id: 15},{id: 16},{id: 17},{id: 1}
+    ];
 
-        var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
-        var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
-        streetLayer.addTo(map);
-        L.control.layers({"Straatkaart": streetLayer, "Satelliet (Bergen)": satLayer}, null, {position: 'topright'}).addTo(map);
+    // Fallback images van Unsplash gebaseerd op locatie naam
+    function getImageUrl(locName, localImgPath) {
+        // Als fallback laden we een unsplash image o.b.v. de stadsnaam. 
+        // In productie (GitHub) kun je de 'images/' map vullen met je eigen foto's!
+        return `[https://source.unsplash.com/400x200/?$](https://source.unsplash.com/400x200/?$){locName},japan`; 
+    }
 
-        var legsInfo = [
-            { id: 0, name: "1: Start & Alpen", color: "#e6194B" },
-            { id: 1, name: "2: Kansai (Cultuur)", color: "#3cb44b" },
-            { id: 2, name: "3: Shimanami Kaido", color: "#4363d8" },
-            { id: 3, name: "4: Chugoku (Historie)", color: "#911eb4" },
-            { id: 4, name: "5: Nakasendo & Fuji", color: "#f58231" }
-        ];
+    // Lijnen tekenen
+    for (var i = 0; i < exactRoute.length - 1; i++) {
+        var startLoc = locations.find(l => l.id === exactRoute[i].id);
+        var endLoc = locations.find(l => l.id === exactRoute[i+1].id);
+        var legColor = legsInfo[endLoc.leg].color;
+        var isDayTrip = (exactRoute[i+1].id === 12 || exactRoute[i].id === 12 || exactRoute[i+1].id === 3 || exactRoute[i].id === 3);
+        L.polyline([[startLoc.lat, startLoc.lon], [endLoc.lat, endLoc.lon]], {
+            color: legColor, weight: isDayTrip ? 2.5 : 3.5, opacity: 0.8, dashArray: isDayTrip ? '5, 5' : null
+        }).addTo(map);
+    }
 
-        // Voeg start/eind data toe aan de locaties voor de Live Tracker (Formaat: YYYY-MM-DD)
-        var locations = [
-            {id: 1, name: "Tokyo", lat: 35.6895, lon: 139.6917, desc: "10-14 Sep & 8-15 Oct", leg: 0, 
-             dates: [{start: "2026-09-09", end: "2026-09-14"}, {start: "2026-10-08", end: "2026-10-15"}],
-             plan: ["Aankomst & vertrek", "Vliegen"], suggest: ["Shibuya Crossing", "Senso-ji in Asakusa", "Shinjuku Gyoen"]},
-             
-            {id: 2, name: "Kanazawa", lat: 36.5613, lon: 136.6562, desc: "14-17 Sep", leg: 0, dates: [{start: "2026-09-14", end: "2026-09-17"}],
-             plan: ["Geishawijk (Higashi Chaya)", "Vismarkt (Omicho)"], suggest: ["Kenroku-en tuin", "Kanazawa Castle"]},
-             
-            {id: 3, name: "Shirakawa-go", lat: 36.2621, lon: 136.9062, desc: "17 Sep (Dagtrip)", leg: 0, dates: [{start: "2026-09-17", end: "2026-09-17"}],
-             plan: ["Busrit is geboekt"], suggest: ["Traditionele gassho-zukuri huizen (UNESCO)", "Shiroyama Viewpoint"]},
-             
-            {id: 4, name: "Takayama", lat: 36.1461, lon: 137.2520, desc: "17-19 Sep", leg: 0, dates: [{start: "2026-09-17", end: "2026-09-19"}],
-             plan: ["Vrij in te vullen"], suggest: ["Oude centrum wandelroute", "Hida Beef proeven"]},
-             
-            {id: 5, name: "Osaka", lat: 34.6937, lon: 135.5023, desc: "19-23 Sep", leg: 1, dates: [{start: "2026-09-19", end: "2026-09-23"}],
-             plan: ["Dagtrip Nara (22 sep)"], suggest: ["Shinsekai (direct bij je hostel!)", "Dotonbori avondmarkt"]},
-             
-            {id: 6, name: "Kyoto", lat: 35.0116, lon: 135.7681, desc: "23-26 Sep", leg: 1, dates: [{start: "2026-09-23", end: "2026-09-26"}],
-             plan: ["Adashino nenbutsuji", "Boat ride", "Temple route"], suggest: ["Fushimi Inari Taisha", "Kinkaku-ji", "Arashiyama Bamboebos"]},
-             
-            {id: 7, name: "Onomichi", lat: 34.4093, lon: 133.1979, desc: "26-27 Sep", leg: 2, dates: [{start: "2026-09-26", end: "2026-09-27"}],
-             plan: ["Startpunt voor Shimanami Kaido fietsroute"], suggest: ["Senko-ji tempel ropeway", "Onomichi Ramen eten"]},
-             
-            {id: 8, name: "Ikuchijima", lat: 34.3059, lon: 133.0905, desc: "27-28 Sep", leg: 2, dates: [{start: "2026-09-27", end: "2026-09-28"}],
-             plan: ["Fietsen", "Bagagevervoer naar Imabari regelen"], suggest: ["Kosan-ji tempel", "Lokaal citroen-ijs eten"]},
-             
-            {id: 9, name: "Imabari", lat: 34.0662, lon: 132.9977, desc: "28-29 Sep", leg: 2, dates: [{start: "2026-09-28", end: "2026-09-29"}],
-             plan: ["Eindpunt fietstocht"], suggest: ["Imabari Castle", "Towels Museum (Ichihiro)"]},
-             
-            {id: 10, name: "Matsuyama", lat: 33.8392, lon: 132.7656, desc: "29 Sep - 1 Oct", leg: 2, dates: [{start: "2026-09-29", end: "2026-10-01"}],
-             plan: ["Vrij in te vullen"], suggest: ["Dogo Onsen (inspiratie Spirited Away)", "Matsuyama Castle via kabelbaan"]},
-             
-            {id: 11, name: "Hiroshima", lat: 34.3853, lon: 132.4553, desc: "1-4 Oct", leg: 3, dates: [{start: "2026-10-01", end: "2026-10-04"}],
-             plan: ["Peace memorial", "Dingen regelen voor Miyajima"], suggest: ["Peace Memorial Museum", "Atomic Bomb Dome"]},
-             
-            {id: 12, name: "Miyajima", lat: 34.2968, lon: 132.3197, desc: "2 Oct (Dagtrip)", leg: 3, dates: [{start: "2026-10-02", end: "2026-10-02"}],
-             plan: ["Drijvende Torii-gate bezoeken"], suggest: ["Itsukushima Shrine", "Wilde herten aaien"]},
-             
-            {id: 13, name: "Himeji", lat: 34.8151, lon: 134.6853, desc: "4 Oct", leg: 3, dates: [{start: "2026-10-04", end: "2026-10-04"}],
-             plan: ["Tussenstop richting Magome"], suggest: ["Himeji Castle (The White Heron)", "Koko-en Garden"]},
-             
-            {id: 14, name: "Magome", lat: 35.5269, lon: 137.5683, desc: "4-5 Oct", leg: 4, dates: [{start: "2026-10-04", end: "2026-10-05"}],
-             plan: ["Start Nakasendo trail"], suggest: ["Wandel de historische postroute naar Tsumago", "Gohei Mochi proeven"]},
-             
-            {id: 15, name: "Tsumago", lat: 35.5768, lon: 137.5951, desc: "5 Oct", leg: 4, dates: [{start: "2026-10-05", end: "2026-10-05"}],
-             plan: ["Aankomst Nakasendo trail"], suggest: ["Verken de authentiek bewaarde houten gebouwen"]},
-             
-            {id: 16, name: "Nagoya", lat: 35.1815, lon: 136.9066, desc: "5-6 Oct", leg: 4, dates: [{start: "2026-10-05", end: "2026-10-06"}],
-             plan: ["Bus naar Kawaguchiko reserveren"], suggest: ["Nagoya Castle", "Miso Katsu proeven"]},
-             
-            {id: 17, name: "Kawaguchiko", lat: 35.5034, lon: 138.7562, desc: "6-8 Oct", leg: 4, dates: [{start: "2026-10-06", end: "2026-10-08"}],
-             plan: ["Vrij in te vullen"], suggest: ["Chureito Pagoda (Fuji uitzicht)", "Huur een fiets rond het meer"]}
-        ];
+    // Live Date Logic
+    var today = new Date();
+    var currentActiveLocation = null;
+    var tripStartDate = new Date("2026-09-09");
+    var tripEndDate = new Date("2026-10-15");
 
-        var exactRoute = [
-            {id: 1},{id: 2},{id: 3},{id: 4},{id: 5},{id: 6},{id: 7},{id: 8},{id: 9},{id: 10},
-            {id: 11},{id: 12},{id: 11},{id: 13},{id: 14},{id: 15},{id: 16},{id: 17},{id: 1}
-        ];
+    if (today < tripStartDate) {
+        document.getElementById('status-bar').innerHTML = "<i class='fa-solid fa-suitcase-rolling'></i> Tassen inpakken! Nog even tot vertrek.";
+    } else if (today > tripEndDate) {
+        document.getElementById('status-bar').innerHTML = "<i class='fa-solid fa-house-chimney'></i> Weer veilig thuis van een mooie reis!";
+    } else {
+        document.getElementById('status-bar').innerHTML = "<i class='fa-solid fa-plane'></i> Momenteel in Japan!";
+    }
 
-        // Lijnen tekenen
-        for (var i = 0; i < exactRoute.length - 1; i++) {
-            var startLoc = locations.find(l => l.id === exactRoute[i].id);
-            var endLoc = locations.find(l => l.id === exactRoute[i+1].id);
-            var legColor = legsInfo[endLoc.leg].color;
-            var isDayTrip = (exactRoute[i+1].id === 12 || exactRoute[i].id === 12 || exactRoute[i+1].id === 3 || exactRoute[i].id === 3);
-            L.polyline([[startLoc.lat, startLoc.lon], [endLoc.lat, endLoc.lon]], {
-                color: legColor, weight: isDayTrip ? 2.5 : 3.5, opacity: 0.8, dashArray: isDayTrip ? '5, 5' : null
-            }).addTo(map);
-        }
+    var isMobile = window.innerWidth <= 480;
+    var allMarkers = [];
+    
+    locations.forEach(function(loc) {
+        var legColor = legsInfo[loc.leg].color;
+        var isActive = false;
 
-        // Live Date Logic
-        var today = new Date();
-        // Om het effect te testen kun je deze regel uncommenten en de datum aanpassen:
-        // today = new Date("2026-09-24"); 
-        
-        var currentActiveLocation = null;
-        var tripStartDate = new Date("2026-09-09");
-        var tripEndDate = new Date("2026-10-15");
-
-        if (today < tripStartDate) {
-            document.getElementById('status-bar').innerHTML = "🎒 Tassen aan het inpakken! Nog even tot vertrek.";
-        } else if (today > tripEndDate) {
-            document.getElementById('status-bar').innerHTML = "🏠 Weer veilig thuis van een mooie reis!";
-        } else {
-            document.getElementById('status-bar').innerHTML = "✈️ Momenteel in Japan!";
-        }
-
-        var isMobile = window.innerWidth <= 480;
-        var allMarkers = [];
-        
-        locations.forEach(function(loc) {
-            var legColor = legsInfo[loc.leg].color;
-            var isActive = false;
-
-            // Check of "vandaag" binnen de datums van deze locatie valt
-            if(loc.dates) {
-                loc.dates.forEach(function(dateRange) {
-                    var dStart = new Date(dateRange.start);
-                    var dEnd = new Date(dateRange.end);
-                    dEnd.setHours(23, 59, 59); // Tot einde van de dag
-                    if (today >= dStart && today <= dEnd) {
-                        isActive = true;
-                        currentActiveLocation = loc;
-                    }
-                });
-            }
-
-            var markerClass = isActive ? 'custom-marker marker-active' : 'custom-marker';
-            var customIcon = L.divIcon({
-                className: markerClass,
-                html: '<div style="background-color:' + legColor + '; width:100%; height:100%; border-radius:50%;">' + loc.id + '</div>',
-                iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13]
+        if(loc.dates) {
+            loc.dates.forEach(function(dateRange) {
+                var dStart = new Date(dateRange.start);
+                var dEnd = new Date(dateRange.end);
+                dEnd.setHours(23, 59, 59);
+                if (today >= dStart && today <= dEnd) {
+                    isActive = true;
+                    currentActiveLocation = loc;
+                }
             });
+        }
 
-            var planHtml = loc.plan.map(p => '<li>' + p + '</li>').join('');
-            var suggestHtml = loc.suggest.map(s => '<li>' + s + '</li>').join('');
-            var activeBadge = isActive ? '<span class="active-badge">📍 HIER BEN IK NU</span>' : '';
-
-            var popupContent = `
-                <div class="popup-header" style="border-bottom-color: ${legColor}">${loc.id}. ${loc.name} ${activeBadge}</div>
-                <div class="popup-date">📅 ${loc.desc} <br>📍 ${legsInfo[loc.leg].name}</div>
-                <div class="popup-section" style="border-left-color: ${legColor}"><b>Planning:</b><ul>${planHtml}</ul></div>
-                <div class="popup-section" style="border-left-color: ${legColor}"><b>Highlights:</b><ul>${suggestHtml}</ul></div>
-            `;
-
-            var marker = L.marker([loc.lat, loc.lon], {icon: customIcon}).addTo(map);
-            allMarkers.push(marker);
-            marker.bindPopup(popupContent, { minWidth: isMobile ? 260 : 320, maxWidth: isMobile ? 320 : 450, autoPanPadding: [20, 20] });
-            
-            // Focus op de actieve marker als de kaart is ingeladen
-            if(isActive) {
-                setTimeout(() => { 
-                    marker.openPopup(); 
-                    document.getElementById('status-bar').innerHTML = `📍 Momenteel in <b>${loc.name}</b>!`;
-                }, 1200);
-            }
+        var markerClass = isActive ? 'custom-marker marker-active' : 'custom-marker';
+        var customIcon = L.divIcon({
+            className: markerClass,
+            html: '<div style="background-color:' + legColor + '; width:100%; height:100%; border-radius:50%;">' + loc.id + '</div>',
+            iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -13]
         });
 
-        var group = new L.featureGroup(allMarkers);
-        
-        // Hide loader when ready and zoom
-        window.onload = function() {
-            setTimeout(function() {
-                document.getElementById('loader').style.opacity = '0';
-                setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 800);
+        var planHtml = loc.plan.map(p => '<li>' + p + '</li>').join('');
+        var suggestHtml = loc.suggest.map(s => '<li>' + s + '</li>').join('');
+        var activeBadge = isActive ? '<span class="active-badge"><i class="fa-solid fa-location-dot"></i> NU HIER</span>' : '';
+        var imgSrc = getImageUrl(loc.name, loc.img);
+
+        // De nieuwe HTML structuur van de popup met image!
+        var popupContent = `
+            <img src="${imgSrc}" class="popup-hero-img" style="border-bottom-color: ${legColor};" alt="${loc.name}">
+            <div class="popup-body">
+                <div class="popup-header">${loc.id}. ${loc.name} ${activeBadge}</div>
+                <div class="popup-date"><i class="fa-regular fa-calendar"></i> ${loc.desc} &nbsp;|&nbsp; <i class="fa-solid fa-map-pin"></i> ${legsInfo[loc.leg].name}</div>
                 
-                if (currentActiveLocation) {
-                    map.setView([currentActiveLocation.lat, currentActiveLocation.lon], 9);
-                } else {
-                    map.fitBounds(group.getBounds(), {padding: [30, 30]});
-                }
-            }, 800); // Korte nep-vertraging voor het mooie laad-effect
-        };
+                <div class="popup-weather">
+                    <span>Verwacht Weer (Sep/Okt)</span>
+                    <div><i class="fa-solid ${loc.weatherIcon}"></i> ${loc.temp}</div>
+                </div>
 
-        // Legenda
-        var legend = L.control({position: 'bottomright'});
-        legend.onAdd = function (map) {
-            var div = L.DomUtil.create('div', 'info legend');
-            div.innerHTML += '<h4>Jouw Route door Japan</h4>';
-            legsInfo.forEach(l => { div.innerHTML += '<i style="background:' + l.color + '"></i> ' + l.name + '<br>'; });
-            return div;
-        };
-        legend.addTo(map);
+                <div class="popup-section" style="border-left-color: ${legColor}">
+                    <h5><i class="fa-solid fa-list-check"></i> Planning</h5>
+                    <ul>${planHtml}</ul>
+                </div>
+                <div class="popup-section" style="border-left-color: ${legColor}">
+                    <h5><i class="fa-solid fa-lightbulb"></i> Highlights</h5>
+                    <ul>${suggestHtml}</ul>
+                </div>
+            </div>
+        `;
 
-        // Knoppen functionaliteit
-        document.getElementById('btn-zoom-all').onclick = function() {
-            map.fitBounds(group.getBounds(), {padding: [30, 30]});
-        };
+        var marker = L.marker([loc.lat, loc.lon], {icon: customIcon}).addTo(map);
+        allMarkers.push(marker);
+        
+        // Verwijder default padding van leaflet container
+        marker.bindPopup(popupContent, { 
+            autoPanPadding: [30, 30],
+            className: 'custom-popup-container' 
+        });
+        
+        if(isActive) {
+            setTimeout(() => { 
+                marker.openPopup(); 
+                document.getElementById('status-bar').innerHTML = `<i class="fa-solid fa-location-dot"></i> Momenteel in <b>${loc.name}</b>!`;
+            }, 1200);
+        }
+    });
 
-        document.getElementById('btn-share').onclick = function() {
-            if (navigator.share) {
-                navigator.share({
-                    title: 'Mijn Japan Reis',
-                    text: 'Kijk waar ik uithang in Japan en bekijk mijn route!',
-                    url: window.location.href,
-                }).catch(console.error);
+    var group = new L.featureGroup(allMarkers);
+    
+    window.onload = function() {
+        setTimeout(function() {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => { document.getElementById('loader').style.display = 'none'; }, 800);
+            
+            if (currentActiveLocation) {
+                map.setView([currentActiveLocation.lat, currentActiveLocation.lon], 9);
             } else {
-                alert("Kopieer deze link om hem te delen met je vrienden: " + window.location.href);
+                map.fitBounds(group.getBounds(), {padding: [30, 30]});
             }
-        };
+        }, 800);
+    };
 
-    </script>
-</body>
-</html>
+    var legend = L.control({position: 'bottomright'});
+    legend.onAdd = function (map) {
+        var div = L.DomUtil.create('div', 'info legend');
+        div.innerHTML += '<h4>Route & Reisdelen</h4>';
+        legsInfo.forEach(l => { div.innerHTML += '<i style="background:' + l.color + '"></i> ' + l.name + '<br>'; });
+        return div;
+    };
+    legend.addTo(map);
+
+    document.getElementById('btn-zoom-all').onclick = function() {
+        map.fitBounds(group.getBounds(), {padding: [30, 30]});
+    };
+
+    document.getElementById('btn-share').onclick = function() {
+        if (navigator.share) {
+            navigator.share({
+                title: 'Mijn Japan Reis',
+                text: 'Kijk waar ik uithang in Japan en bekijk mijn route!',
+                url: window.location.href,
+            }).catch(console.error);
+        } else {
+            alert("Kopieer deze link om hem te delen met je vrienden: " + window.location.href);
+        }
+    };
+
+</script>
