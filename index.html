@@ -1,0 +1,388 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Japan Reisschema - Premium Editie</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    
+    <!-- Geüpdatet naar de nieuwste Leaflet versie voor betere performance en security -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { padding: 0; margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f0f0; }
+        #map { height: 100vh; width: 100vw; }
+        
+        .custom-marker {
+            border-radius: 50%;
+            color: white;
+            text-align: center;
+            line-height: 26px; /* Iets groter voor betere leesbaarheid */
+            font-weight: bold;
+            font-size: 13px;
+            border: 2px solid white;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+            transition: transform 0.2s; /* Animatie bij hover */
+        }
+        
+        .custom-marker:hover {
+            transform: scale(1.1);
+            z-index: 1000 !important;
+        }
+        
+        .legend {
+            background-color: rgba(255, 255, 255, 0.95);
+            padding: 12px 18px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            line-height: 1.6;
+            color: #333;
+            font-size: 13px;
+            backdrop-filter: blur(5px);
+        }
+        
+        .legend i {
+            width: 14px;
+            height: 14px;
+            float: left;
+            margin-right: 10px;
+            opacity: 0.9;
+            border-radius: 50%;
+            margin-top: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        .legend h4 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #555;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 4px;
+        }
+        
+        .leaflet-popup-content {
+            font-size: 14px;
+            margin: 15px 15px 20px 15px; 
+        }
+        .popup-header {
+            font-size: 17px;
+            font-weight: 700;
+            border-bottom: 2px solid #ddd;
+            padding-bottom: 6px;
+            margin-bottom: 8px;
+            color: #222;
+        }
+        .popup-date {
+            color: #005A7F;
+            font-weight: 600;
+            margin-bottom: 12px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+        }
+        .popup-section {
+            margin-bottom: 14px;
+            background: #f9f9f9;
+            padding: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #ccc;
+        }
+        .popup-section b {
+            color: #333;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .popup-section ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .popup-section li {
+            margin-bottom: 3px;
+        }
+        .popup-btn {
+            display: block;
+            text-align: center;
+            background-color: #0078A8;
+            color: white !important;
+            text-decoration: none;
+            padding: 10px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            margin-top: 15px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,120,168,0.3);
+        }
+        .popup-btn:hover {
+            background-color: #005A7F;
+            box-shadow: 0 4px 8px rgba(0,120,168,0.4);
+            transform: translateY(-1px);
+        }
+
+        /* Reset zoom knop */
+        .reset-btn-container {
+            background-color: white;
+            padding: 8px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+            text-align: center;
+            transition: background 0.2s;
+        }
+        .reset-btn-container:hover {
+            background-color: #f0f0f0;
+        }
+
+        @media (max-width: 480px) {
+            .leaflet-popup-content {
+                font-size: 13px;
+                margin: 12px;
+            }
+            .legend {
+                padding: 8px 12px;
+                font-size: 11px;
+            }
+            .legend h4 {
+                font-size: 12px;
+            }
+            .popup-header {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map', {
+            tap: false
+        });
+
+        // Laag 1: Standaard Straatkaart
+        var streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap',
+            maxZoom: 19
+        });
+
+        // Laag 2: Satellietkaart (Esri World Imagery) - Mooi om de Japanse bergen te zien!
+        var satLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EAP, and the GIS User Community',
+            maxZoom: 19
+        });
+
+        // Voeg standaard straatkaart toe
+        streetLayer.addTo(map);
+
+        // Voeg laag-besturing toe
+        var baseMaps = {
+            "Straatkaart": streetLayer,
+            "Satelliet / Bergen": satLayer
+        };
+        L.control.layers(baseMaps, null, {position: 'topright'}).addTo(map);
+
+        var legsInfo = [
+            { id: 0, name: "1: Start & Japanse Alpen", color: "#e6194B" }, // Vivid Red
+            { id: 1, name: "2: Kansai (Cultuur)", color: "#3cb44b" }, // Vivid Green
+            { id: 2, name: "3: Shimanami Kaido", color: "#4363d8" }, // Vivid Blue
+            { id: 3, name: "4: Chugoku (Historie)", color: "#911eb4" }, // Vivid Purple
+            { id: 4, name: "5: Nakasendo & Fuji", color: "#f58231" }  // Vivid Orange
+        ];
+
+        var locations = [
+            {id: 1, name: "Tokyo", lat: 35.6895, lon: 139.6917, desc: "10-14 Sep & 8-15 Oct", leg: 0, 
+             plan: ["Aankomst & vertrek", "Vliegen"], 
+             suggest: ["Shibuya Crossing", "Senso-ji in Asakusa", "Meiji Jingu & Yoyogi Park", "Shinjuku Gyoen"], searchQuery: "Tokyo"},
+             
+            {id: 2, name: "Kanazawa", lat: 36.5613, lon: 136.6562, desc: "14-17 Sep", leg: 0,
+             plan: ["Geishawijk (Higashi Chaya)", "Vismarkt (Omicho)"],
+             suggest: ["Kenroku-en tuin (behoort tot top 3 van Japan!)", "Kanazawa Castle", "21st Century Museum"], searchQuery: "Kanazawa"},
+             
+            {id: 3, name: "Shirakawa-go", lat: 36.2621, lon: 136.9062, desc: "17 Sep (Dagtrip)", leg: 0,
+             plan: ["Busrit is geboekt"],
+             suggest: ["Traditionele gassho-zukuri huizen (UNESCO)", "Shiroyama Viewpoint (iconisch overzicht)"], searchQuery: "Shirakawa-go"},
+             
+            {id: 4, name: "Takayama", lat: 36.1461, lon: 137.2520, desc: "17-19 Sep", leg: 0,
+             plan: ["Vrij in te vullen"],
+             suggest: ["Oude centrum wandelroute (Sanmachi)", "Ochtendmarkten (Miyagawa)", "Authentieke Hida Beef proeven"], searchQuery: "Takayama"},
+             
+            {id: 5, name: "Osaka", lat: 34.6937, lon: 135.5023, desc: "19-23 Sep", leg: 1,
+             plan: ["Dagtrip Nara (22 sep)"],
+             suggest: ["Shinsekai (direct bij je hostel!)", "Dotonbori avondmarkt en neonlichten", "Osaka Castle"], searchQuery: "Osaka"},
+             
+            {id: 6, name: "Kyoto", lat: 35.0116, lon: 135.7681, desc: "23-26 Sep", leg: 1,
+             plan: ["Adashino nenbutsuji tempel", "Boat ride", "Temple route"],
+             suggest: ["Fushimi Inari Taisha (rode torii gates)", "Kinkaku-ji (Gouden Paviljoen)", "Arashiyama Bamboebos"], searchQuery: "Kyoto"},
+             
+            {id: 7, name: "Onomichi", lat: 34.4093, lon: 133.1979, desc: "26-27 Sep", leg: 2,
+             plan: ["Startpunt voor de Shimanami Kaido fietsroute"],
+             suggest: ["Senko-ji tempel ropeway", "Onomichi Ramen eten (lokale specialiteit)"], searchQuery: "Onomichi"},
+             
+            {id: 8, name: "Ikuchijima", lat: 34.3059, lon: 133.0905, desc: "27-28 Sep", leg: 2,
+             plan: ["Fietsen", "Bagagevervoer naar Imabari regelen"],
+             suggest: ["Kosan-ji tempel (erg indrukwekkend)", "Sunset Beach", "Lokaal citroen-ijs eten"], searchQuery: "Ikuchijima"},
+             
+            {id: 9, name: "Imabari", lat: 34.0662, lon: 132.9977, desc: "28-29 Sep", leg: 2,
+             plan: ["Eindpunt fietstocht"],
+             suggest: ["Imabari Castle", "Towels Museum (Ichihiro)"], searchQuery: "Imabari"},
+             
+            {id: 10, name: "Matsuyama", lat: 33.8392, lon: 132.7656, desc: "29 Sep - 1 Oct", leg: 2,
+             plan: ["Vrij in te vullen"],
+             suggest: ["Dogo Onsen (inspiratie voor Spirited Away)", "Matsuyama Castle via kabelbaan"], searchQuery: "Matsuyama"},
+             
+            {id: 11, name: "Hiroshima", lat: 34.3853, lon: 132.4553, desc: "1-4 Oct", leg: 3,
+             plan: ["Peace memorial", "Dingen regelen voor Miyajima"],
+             suggest: ["Peace Memorial Museum", "Atomic Bomb Dome", "Okonomiyaki (Hiroshima-style) eten"], searchQuery: "Hiroshima"},
+             
+            {id: 12, name: "Miyajima", lat: 34.2968, lon: 132.3197, desc: "2 Oct (Dagtrip)", leg: 3,
+             plan: ["Drijvende Torii-gate bezoeken"],
+             suggest: ["Itsukushima Shrine", "Mount Misen beklimmen / kabelbaan", "Wilde herten aaien"], searchQuery: "Miyajima"},
+             
+            {id: 13, name: "Himeji", lat: 34.8151, lon: 134.6853, desc: "4 Oct", leg: 3,
+             plan: ["Tussenstop richting Magome"],
+             suggest: ["Himeji Castle (The White Heron - origineelste kasteel van Japan)", "Koko-en Garden"], searchQuery: "Himeji"},
+             
+            {id: 14, name: "Magome", lat: 35.5269, lon: 137.5683, desc: "4-5 Oct", leg: 4,
+             plan: ["Start Nakasendo trail"],
+             suggest: ["Wandel de historische postroute naar Tsumago", "Proef de lokale snack: Gohei Mochi"], searchQuery: "Magome"},
+             
+            {id: 15, name: "Tsumago", lat: 35.5768, lon: 137.5951, desc: "5 Oct", leg: 4,
+             plan: ["Aankomst Nakasendo trail"],
+             suggest: ["Verken de authentiek bewaarde houten gebouwen (geen auto's toegestaan)"], searchQuery: "Tsumago"},
+             
+            {id: 16, name: "Nagoya", lat: 35.1815, lon: 136.9066, desc: "5-6 Oct", leg: 4,
+             plan: ["Bus naar Kawaguchiko reserveren"],
+             suggest: ["Nagoya Castle", "SCMAGLEV and Railway Park", "Miso Katsu proeven"], searchQuery: "Nagoya"},
+             
+            {id: 17, name: "Kawaguchiko", lat: 35.5034, lon: 138.7562, desc: "6-8 Oct", leg: 4,
+             plan: ["Vrij in te vullen"],
+             suggest: ["Chureito Pagoda (hét iconische Fuji uitzicht)", "Oishi Park", "Huur een fiets rond het meer"], searchQuery: "Kawaguchiko"}
+        ];
+
+        // LOGISCHE ROUTE (inclusief daytrips terug naar basis)
+        var exactRoute = [
+            {id: 1, leg: 0}, // Tokyo
+            {id: 2, leg: 0}, // Kanazawa
+            {id: 3, leg: 0}, // Shirakawa-go
+            {id: 4, leg: 0}, // Takayama
+            {id: 5, leg: 1}, // Osaka (Nieuwe leg start)
+            {id: 6, leg: 1}, // Kyoto
+            {id: 7, leg: 2}, // Onomichi (Nieuwe leg start)
+            {id: 8, leg: 2}, // Ikuchijima
+            {id: 9, leg: 2}, // Imabari
+            {id: 10, leg: 2}, // Matsuyama
+            {id: 11, leg: 3}, // Hiroshima (Nieuwe leg start)
+            {id: 12, leg: 3}, // Miyajima (Daytrip)
+            {id: 11, leg: 3}, // Terug naar Hiroshima (Belangrijke fix!)
+            {id: 13, leg: 3}, // Himeji
+            {id: 14, leg: 4}, // Magome (Nieuwe leg start)
+            {id: 15, leg: 4}, // Tsumago
+            {id: 16, leg: 4}, // Nagoya
+            {id: 17, leg: 4}, // Kawaguchiko
+            {id: 1, leg: 4}  // Terug naar Tokyo
+        ];
+
+        // Teken de lijnen met de juiste kleuren op basis van de exacte route
+        for (var i = 0; i < exactRoute.length - 1; i++) {
+            var startLoc = locations.find(l => l.id === exactRoute[i].id);
+            var endLoc = locations.find(l => l.id === exactRoute[i+1].id);
+            
+            // Bepaal kleur: Als we naar een nieuwe leg gaan, gebruik de kleur van de eindbestemming (of start, afhankelijk van logica)
+            // Lijnkleur is gelijk aan de 'leg' waartoe de eindbestemming behoort
+            var legColor = legsInfo[endLoc.leg].color;
+            
+            // Speciale dasharray voor dagtrips
+            var dashArray = (exactRoute[i+1].id === 12 || exactRoute[i].id === 12) ? '5, 5' : null;
+
+            L.polyline([[startLoc.lat, startLoc.lon], [endLoc.lat, endLoc.lon]], {
+                color: legColor, 
+                weight: exactRoute[i+1].id === 12 || exactRoute[i].id === 12 ? 2.5 : 3.5, 
+                opacity: 0.8,
+                dashArray: dashArray
+            }).addTo(map);
+        }
+
+        var isMobile = window.innerWidth <= 480;
+        var allMarkers = [];
+        
+        locations.forEach(function(loc) {
+            var legColor = legsInfo[loc.leg].color;
+            
+            var customIcon = L.divIcon({
+                className: 'custom-marker',
+                html: '<div style="background-color:' + legColor + '; width:26px; height:26px; border-radius:50%;">' + loc.id + '</div>',
+                iconSize: [26, 26],
+                iconAnchor: [13, 13],
+                popupAnchor: [0, -13] // Zorgt dat de popup net boven het bolletje opent
+            });
+
+            var planHtml = loc.plan.map(p => '<li>' + p + '</li>').join('');
+            var suggestHtml = loc.suggest.map(s => '<li>' + s + '</li>').join('');
+
+            // Mooiere sectiekleuren via CSS border-left
+            var sectKleur = "border-left-color: " + legColor + ";";
+
+            var popupContent = `
+                <div class="popup-header" style="border-bottom-color: ${legColor}">${loc.id}. ${loc.name}</div>
+                <div class="popup-date">📅 ${loc.desc} <br>📍 ${legsInfo[loc.leg].name}</div>
+                
+                <div class="popup-section" style="${sectKleur}">
+                    <b>Vast in Planning:</b>
+                    <ul>${planHtml}</ul>
+                </div>
+                
+                <div class="popup-section" style="${sectKleur}">
+                    <b>Suggesties & Highlights:</b>
+                    <ul>${suggestHtml}</ul>
+                </div>
+                
+                <a href="https://www.google.com/search?q=Wat+te+doen+in+${loc.searchQuery}+Japan" target="_blank" class="popup-btn" style="background-color: ${legColor}">Ontdek ${loc.name}</a>
+            `;
+
+            var marker = L.marker([loc.lat, loc.lon], {icon: customIcon}).addTo(map);
+            allMarkers.push(marker);
+            
+            marker.bindPopup(popupContent, {
+                minWidth: isMobile ? 260 : 320,
+                maxWidth: isMobile ? 320 : 450,
+                autoPanPadding: [20, 20] // Zorgt dat de popup altijd volledig in beeld schuift
+            });
+        });
+
+        // Bereken automatisch de ideale zoom en positie om de HELE route perfect in beeld te krijgen
+        var group = new L.featureGroup(allMarkers);
+        map.fitBounds(group.getBounds(), {padding: [30, 30]});
+
+        // Voeg de Legenda toe
+        var legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            var div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML += '<h4>Jouw Route door Japan</h4>';
+            for (var i = 0; i < legsInfo.length; i++) {
+                div.innerHTML +=
+                    '<i style="background:' + legsInfo[i].color + '"></i> ' +
+                    legsInfo[i].name + '<br>';
+            }
+            return div;
+        };
+        legend.addTo(map);
+
+        // Voeg een "Reset Kaart" knop toe linksboven
+        var resetControl = L.control({position: 'topleft'});
+        resetControl.onAdd = function(map) {
+            var div = L.DomUtil.create('div', 'reset-btn-container');
+            div.innerHTML = '🗺️ Toon hele route';
+            div.onclick = function(){
+                map.fitBounds(group.getBounds(), {padding: [30, 30]});
+            };
+            return div;
+        };
+        resetControl.addTo(map);
+
+    </script>
+</body>
+</html>
